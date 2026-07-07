@@ -20,7 +20,7 @@ export const Header = () => {
       <div className="container">
         <div className="flex flex-between" style={{ padding: '1rem 0' }}>
           <Link to="/" className="logo">
-            3D Storefront
+            Wolffewrought
           </Link>
 
           <nav className="nav-links">
