@@ -25,10 +25,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, '../../frontend/build')));
 
 // Static file serving for PDFs
-app.use('/tickets', express.static(path.join(__dirname, '../data/tickets')));
+app.use('/tickets', express.static(config.ticketStoragePath));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -45,9 +44,9 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Server is running' });
 });
 
-// Fallback to React SPA
+// API-only server — frontend is hosted separately on Vercel
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../frontend/build/index.html'));
+  res.status(404).json({ success: false, error: 'Not found. API lives under /api' });
 });
 
 // Error handler
