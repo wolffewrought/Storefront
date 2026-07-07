@@ -12,11 +12,20 @@ import { SignupPage } from './pages/SignupPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrderHistoryPage } from './pages/OrderHistoryPage';
+import { AdminPanel } from './pages/AdminPanel';
+import { BottomNav } from './components/BottomNav';
 
 // Protected Route
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuthContext();
   return isAuthenticated ? children : <Navigate to="/login" />;
+};
+
+// Admin Route — requires login AND admin flag
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, user } = useAuthContext();
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  return user?.isAdmin ? children : <Navigate to="/" />;
 };
 
 const AppContent = () => {
@@ -49,10 +58,20 @@ const AppContent = () => {
             }
           />
 
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPanel />
+              </AdminRoute>
+            }
+          />
+
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
       <Footer />
+      <BottomNav />
     </Router>
   );
 };
@@ -60,7 +79,7 @@ const AppContent = () => {
 const Footer = () => (
   <footer className="footer">
     <div className="container">
-      <p>&copy; 2024 3D Storefront. All rights reserved.</p>
+      <p>&copy; 2026 Wolffewrought. All rights reserved.</p>
     </div>
   </footer>
 );
