@@ -19,9 +19,7 @@ export const OrderDetailPage = () => {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState('');
 
-  const { data: orderData, loading, error, refetch } = useFetch(() =>
-    ordersApi.get(ticketId)
-  );
+  const { data: orderData, loading, error, refetch } = useFetch(() => ordersApi.get(ticketId), [ticketId]);
 
   const order = orderData?.data;
 
