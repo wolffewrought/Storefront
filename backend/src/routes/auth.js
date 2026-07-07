@@ -179,4 +179,26 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// One-time admin setup: only active while ADMIN_SETUP_SECRET env var is set.
+// Usage: /api/auth/promote?secret=YOURSECRET&username=YOURNAME
+// Remove the env var in Railway after use to disable this endpoint.
+router.get('/promote', async (req, res) => {
+  const setupSecret = process.env.ADMIN_SETUP_SECRET;
+  if (!setupSecret) {
+    return res.status(404).json({ success: false, error: 'Not found' });
+  }
+
+  const { secret, username } = req.query;
+  if (secret !== setupSecret || !username) {
+    return res.status(403).json({ success: false, error: 'Forbidden' });
+  }
+
+  const result = await queryAll('UPDATE users SET is_admin = 1 WHERE username = ?', [username]);
+  if (!result.changes) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  res.json({ success: true, message: `${username} is now admin. Remove ADMIN_SETUP_SECRET from Railway now.` });
+});
+
 export default router;
