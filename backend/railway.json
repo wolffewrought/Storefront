@@ -1,0 +1,9 @@
+{
+  "$schema": "https://railway.app/json-schema",
+  "build": {
+    "builder": "dockerfile"
+  },
+  "deploy": {
+    "startCommand": "npm start"
+  }
+}
