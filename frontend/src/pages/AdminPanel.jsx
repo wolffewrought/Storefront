@@ -4,11 +4,22 @@ import {
   orders as ordersApi,
   products as productsApi,
   categories as categoriesApi,
+  ips as ipsApi,
+  modellers as modellersApi,
+  media as mediaApi,
 } from '../services/api';
 
 const TABS = [
   { id: 'orders', label: 'Orders' },
   { id: 'products', label: 'Products' },
+  { id: 'categories', label: 'Categories' },
+  { id: 'creators', label: 'Creators & IPs' },
+];
+
+const CATEGORY_TYPES = [
+  { id: 'printed', label: 'Printed Products' },
+  { id: 'stl', label: 'STLs' },
+  { id: 'asset', label: '3D Assets' },
 ];
 
 export const AdminPanel = () => {
@@ -16,30 +27,56 @@ export const AdminPanel = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
+
+  // Product form
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
-    name: '', description: '', price: '', categoryId: '',
+    name: '', description: '', price: '', categoryId: '', ipId: '', modellerId: '', stockCount: '',
   });
+
+  // Category form
+  const [newCategory, setNewCategory] = useState({ name: '', type: 'printed', description: '' });
+
+  // IP / Modeller forms
+  const [newIp, setNewIp] = useState('');
+  const [newModeller, setNewModeller] = useState('');
+
+  // Media management
+  const [mediaProductId, setMediaProductId] = useState(null);
+  const [mediaDetail, setMediaDetail] = useState(null);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [newFile, setNewFile] = useState({ fileName: '', fileUrl: '', fileType: 'stl' });
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
   // Data
   const { data: ordersData, loading: ordersLoading } = useFetch(
-    () => ordersApi.adminAll(),
-    [refreshKey]
+    () => ordersApi.adminAll(), [refreshKey]
   );
   const { data: productsData, loading: productsLoading } = useFetch(
-    () => productsApi.list(),
-    [refreshKey]
+    () => productsApi.list(), [refreshKey]
   );
-  const { data: categoriesData } = useFetch(() => categoriesApi.list(), []);
+  const { data: categoriesData } = useFetch(() => categoriesApi.list(), [refreshKey]);
+  const { data: ipsData } = useFetch(() => ipsApi.list(), [refreshKey]);
+  const { data: modellersData } = useFetch(() => modellersApi.list(), [refreshKey]);
 
   const allOrders = useMemo(() => ordersData?.data || [], [ordersData]);
   const allProducts = useMemo(() => productsData?.data || [], [productsData]);
-  const categoryOptions = useMemo(() => {
+  const allIps = useMemo(() => ipsData?.data || ipsData || [], [ipsData]);
+  const allModellers = useMemo(() => modellersData?.data || modellersData || [], [modellersData]);
+
+  // Categories come grouped by type: { printed: [...], stl: [...], asset: [...] }
+  const groupedCategories = useMemo(() => {
     const grouped = categoriesData?.data || categoriesData || {};
-    return Object.values(grouped).flat();
+    return Array.isArray(grouped) ? { all: grouped } : grouped;
   }, [categoriesData]);
+
+  const flatCategories = useMemo(
+    () => Object.entries(groupedCategories).flatMap(([type, cats]) =>
+      (cats || []).map((c) => ({ ...c, type: c.type || type }))
+    ),
+    [groupedCategories]
+  );
 
   // Stats
   const stats = useMemo(() => ({
@@ -51,7 +88,7 @@ export const AdminPanel = () => {
     products: allProducts.length,
   }), [allOrders, allProducts]);
 
-  // Actions
+  // Generic action wrapper
   const runAction = async (key, fn) => {
     setBusy(key);
     setError(null);
@@ -65,33 +102,128 @@ export const AdminPanel = () => {
     }
   };
 
+  // Order actions
   const markPaid = (ticketId) =>
     runAction(`pay-${ticketId}`, () => ordersApi.markPaid(ticketId));
-
   const markDelivered = (ticketId) =>
     runAction(`deliver-${ticketId}`, () => ordersApi.markDelivered(ticketId));
 
-  const deleteProduct = (id, name) => {
-    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    runAction(`del-${id}`, () => productsApi.delete(id));
-  };
-
+  // Product actions
   const createProduct = () => {
-    if (!newProduct.name || !newProduct.price) {
-      setError('Name and price are required');
+    if (!newProduct.name || !newProduct.price || !newProduct.categoryId || !newProduct.modellerId) {
+      setError('Name, price, category, and creator are all required');
       return;
     }
-    runAction('create', async () => {
+    runAction('create-product', async () => {
       await productsApi.create({
         name: newProduct.name,
         description: newProduct.description,
         price: parseFloat(newProduct.price),
-        categoryId: newProduct.categoryId || null,
+        categoryId: parseInt(newProduct.categoryId),
+        ipId: newProduct.ipId ? parseInt(newProduct.ipId) : null,
+        modellerId: parseInt(newProduct.modellerId),
+        stockCount: newProduct.stockCount !== '' ? parseInt(newProduct.stockCount) : null,
       });
-      setNewProduct({ name: '', description: '', price: '', categoryId: '' });
+      setNewProduct({ name: '', description: '', price: '', categoryId: '', ipId: '', modellerId: '', stockCount: '' });
       setShowNewProduct(false);
     });
   };
+
+  const deleteProduct = (id, name) => {
+    if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    runAction(`del-product-${id}`, () => productsApi.delete(id));
+  };
+
+  // Category actions
+  const createCategory = () => {
+    if (!newCategory.name) { setError('Category name is required'); return; }
+    runAction('create-category', async () => {
+      await categoriesApi.create(newCategory);
+      setNewCategory({ name: '', type: 'printed', description: '' });
+    });
+  };
+
+  const deleteCategory = (id, name) => {
+    if (!window.confirm(`Delete category "${name}"? Products in it will lose their category.`)) return;
+    runAction(`del-category-${id}`, () => categoriesApi.delete(id));
+  };
+
+  // IP / Modeller actions
+  const createIp = () => {
+    if (!newIp) return;
+    runAction('create-ip', async () => {
+      await ipsApi.create({ name: newIp });
+      setNewIp('');
+    });
+  };
+  const deleteIp = (id, name) => {
+    if (!window.confirm(`Delete IP "${name}"?`)) return;
+    runAction(`del-ip-${id}`, () => ipsApi.delete(id));
+  };
+  const createModeller = () => {
+    if (!newModeller) return;
+    runAction('create-modeller', async () => {
+      await modellersApi.create({ name: newModeller });
+      setNewModeller('');
+    });
+  };
+  const deleteModeller = (id, name) => {
+    if (!window.confirm(`Delete creator "${name}"?`)) return;
+    runAction(`del-modeller-${id}`, () => modellersApi.delete(id));
+  };
+
+  // Media management
+  const openMedia = async (productId) => {
+    if (mediaProductId === productId) {
+      setMediaProductId(null);
+      setMediaDetail(null);
+      return;
+    }
+    setMediaProductId(productId);
+    setMediaDetail(null);
+    try {
+      const res = await productsApi.get(productId);
+      setMediaDetail(res.data || res);
+    } catch (err) {
+      setError(err.error || String(err));
+    }
+  };
+
+  const reloadMedia = async () => {
+    if (!mediaProductId) return;
+    const res = await productsApi.get(mediaProductId);
+    setMediaDetail(res.data || res);
+  };
+
+  const addImage = () => {
+    if (!newImageUrl) return;
+    runAction('add-image', async () => {
+      await mediaApi.addImage(mediaProductId, { imageUrl: newImageUrl, displayOrder: (mediaDetail?.images?.length || 0) });
+      setNewImageUrl('');
+      await reloadMedia();
+    });
+  };
+
+  const removeImage = (imageId) =>
+    runAction(`del-image-${imageId}`, async () => {
+      await mediaApi.deleteImage(imageId);
+      await reloadMedia();
+    });
+
+  const addFile = () => {
+    if (!newFile.fileName || !newFile.fileUrl) { setError('File name and URL required'); return; }
+    runAction('add-file', async () => {
+      await mediaApi.addFile(mediaProductId, newFile);
+      setNewFile({ fileName: '', fileUrl: '', fileType: 'stl' });
+      await reloadMedia();
+    });
+  };
+
+  const removeFile = (fileId) =>
+    runAction(`del-file-${fileId}`, async () => {
+      await mediaApi.deleteFile(fileId);
+      await reloadMedia();
+    });
 
   const statusBadge = (status) => (
     <span className={`admin-badge admin-badge-${status}`}>{status}</span>
@@ -137,7 +269,7 @@ export const AdminPanel = () => {
         ))}
       </div>
 
-      {/* Orders tab */}
+      {/* ---------- ORDERS ---------- */}
       {activeTab === 'orders' && (
         <div className="admin-section">
           {ordersLoading ? (
@@ -167,9 +299,7 @@ export const AdminPanel = () => {
                       </td>
                       <td className="admin-mono">£{parseFloat(order.total || 0).toFixed(2)}</td>
                       <td>{statusBadge(order.status)}</td>
-                      <td className="admin-dim">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </td>
+                      <td className="admin-dim">{new Date(order.created_at).toLocaleDateString()}</td>
                       <td>
                         <div className="admin-actions">
                           {order.status === 'submitted' && (
@@ -209,14 +339,11 @@ export const AdminPanel = () => {
         </div>
       )}
 
-      {/* Products tab */}
+      {/* ---------- PRODUCTS ---------- */}
       {activeTab === 'products' && (
         <div className="admin-section">
           <div className="admin-section-head">
-            <button
-              className="btn"
-              onClick={() => setShowNewProduct(!showNewProduct)}
-            >
+            <button className="btn" onClick={() => setShowNewProduct(!showNewProduct)}>
               {showNewProduct ? 'Cancel' : '+ Add Product'}
             </button>
           </div>
@@ -225,13 +352,13 @@ export const AdminPanel = () => {
             <div className="admin-form">
               <input
                 type="text"
-                placeholder="Product name"
+                placeholder="Product name *"
                 value={newProduct.name}
                 onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
               />
               <input
                 type="number"
-                placeholder="Price (£)"
+                placeholder="Price (£) *"
                 min="0"
                 step="0.01"
                 value={newProduct.price}
@@ -241,18 +368,49 @@ export const AdminPanel = () => {
                 value={newProduct.categoryId}
                 onChange={(e) => setNewProduct({ ...newProduct, categoryId: e.target.value })}
               >
-                <option value="">Select category…</option>
-                {categoryOptions.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                <option value="">Category * …</option>
+                {flatCategories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
                 ))}
               </select>
+              <select
+                value={newProduct.modellerId}
+                onChange={(e) => setNewProduct({ ...newProduct, modellerId: e.target.value })}
+              >
+                <option value="">Creator * …</option>
+                {allModellers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+              <select
+                value={newProduct.ipId}
+                onChange={(e) => setNewProduct({ ...newProduct, ipId: e.target.value })}
+              >
+                <option value="">IP (optional) …</option>
+                {allIps.map((ip) => (
+                  <option key={ip.id} value={ip.id}>{ip.name}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                placeholder="Stock count (blank = digital/unlimited)"
+                min="0"
+                value={newProduct.stockCount}
+                onChange={(e) => setNewProduct({ ...newProduct, stockCount: e.target.value })}
+              />
               <textarea
                 placeholder="Description"
                 rows={3}
                 value={newProduct.description}
                 onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
               />
-              <button className="btn" disabled={busy === 'create'} onClick={createProduct}>
+              {flatCategories.length === 0 && (
+                <p className="admin-hint">No categories yet — create one in the Categories tab first.</p>
+              )}
+              {allModellers.length === 0 && (
+                <p className="admin-hint">No creators yet — add yourself in the Creators & IPs tab first.</p>
+              )}
+              <button className="btn" disabled={busy === 'create-product'} onClick={createProduct}>
                 Create Product
               </button>
             </div>
@@ -276,26 +434,245 @@ export const AdminPanel = () => {
                 </thead>
                 <tbody>
                   {allProducts.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.name}</td>
-                      <td className="admin-dim">{p.category_name || '—'}</td>
-                      <td className="admin-dim">{p.category_type || '—'}</td>
-                      <td className="admin-mono">£{parseFloat(p.price).toFixed(2)}</td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          disabled={busy === `del-${p.id}`}
-                          onClick={() => deleteProduct(p.id, p.name)}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={p.id}>
+                      <tr>
+                        <td>{p.name}</td>
+                        <td className="admin-dim">{p.category_name || '—'}</td>
+                        <td className="admin-dim">{p.category_type || '—'}</td>
+                        <td className="admin-mono">£{parseFloat(p.price).toFixed(2)}</td>
+                        <td>
+                          <div className="admin-actions">
+                            <button className="btn btn-sm" onClick={() => openMedia(p.id)}>
+                              {mediaProductId === p.id ? 'Close' : 'Media'}
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              disabled={busy === `del-product-${p.id}`}
+                              onClick={() => deleteProduct(p.id, p.name)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {mediaProductId === p.id && (
+                        <tr>
+                          <td colSpan={5}>
+                            <div className="admin-media">
+                              {!mediaDetail ? (
+                                <p>Loading media…</p>
+                              ) : (
+                                <>
+                                  <div className="admin-media-col">
+                                    <h4>Images</h4>
+                                    {(mediaDetail.images || []).length === 0 && (
+                                      <p className="admin-dim">No images.</p>
+                                    )}
+                                    {(mediaDetail.images || []).map((img) => (
+                                      <div key={img.id} className="admin-media-row">
+                                        <span className="admin-media-url">{img.image_url}</span>
+                                        <button
+                                          className="btn btn-sm btn-danger"
+                                          onClick={() => removeImage(img.id)}
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <div className="admin-media-add">
+                                      <input
+                                        type="text"
+                                        placeholder="Image URL"
+                                        value={newImageUrl}
+                                        onChange={(e) => setNewImageUrl(e.target.value)}
+                                      />
+                                      <button className="btn btn-sm" disabled={busy === 'add-image'} onClick={addImage}>
+                                        Add
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="admin-media-col">
+                                    <h4>Files (customer downloads)</h4>
+                                    {(mediaDetail.files || []).length === 0 && (
+                                      <p className="admin-dim">No files.</p>
+                                    )}
+                                    {(mediaDetail.files || []).map((f) => (
+                                      <div key={f.id} className="admin-media-row">
+                                        <span className="admin-media-url">
+                                          {f.file_name} <span className="admin-dim">({f.file_type})</span>
+                                        </span>
+                                        <button
+                                          className="btn btn-sm btn-danger"
+                                          onClick={() => removeFile(f.id)}
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))}
+                                    <div className="admin-media-add admin-media-add-file">
+                                      <input
+                                        type="text"
+                                        placeholder="File name (e.g. blade_v4.zip)"
+                                        value={newFile.fileName}
+                                        onChange={(e) => setNewFile({ ...newFile, fileName: e.target.value })}
+                                      />
+                                      <input
+                                        type="text"
+                                        placeholder="File URL"
+                                        value={newFile.fileUrl}
+                                        onChange={(e) => setNewFile({ ...newFile, fileUrl: e.target.value })}
+                                      />
+                                      <select
+                                        value={newFile.fileType}
+                                        onChange={(e) => setNewFile({ ...newFile, fileType: e.target.value })}
+                                      >
+                                        <option value="stl">STL</option>
+                                        <option value="zip">ZIP</option>
+                                        <option value="3mf">3MF</option>
+                                        <option value="obj">OBJ</option>
+                                        <option value="other">Other</option>
+                                      </select>
+                                      <button className="btn btn-sm" disabled={busy === 'add-file'} onClick={addFile}>
+                                        Add
+                                      </button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ---------- CATEGORIES ---------- */}
+      {activeTab === 'categories' && (
+        <div className="admin-section">
+          <div className="admin-form">
+            <input
+              type="text"
+              placeholder="Category name (e.g. Weapon Props)"
+              value={newCategory.name}
+              onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+            />
+            <select
+              value={newCategory.type}
+              onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value })}
+            >
+              {CATEGORY_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="Description (optional)"
+              value={newCategory.description}
+              onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+            />
+            <button className="btn" disabled={busy === 'create-category'} onClick={createCategory}>
+              Create Category
+            </button>
+            <p className="admin-hint">
+              The type controls which storefront tab the category's products appear under.
+            </p>
+          </div>
+
+          {CATEGORY_TYPES.map((t) => {
+            const cats = flatCategories.filter((c) => c.type === t.id);
+            return (
+              <div key={t.id} className="admin-cat-group">
+                <h4>{t.label}</h4>
+                {cats.length === 0 ? (
+                  <p className="admin-dim">None yet.</p>
+                ) : (
+                  cats.map((c) => (
+                    <div key={c.id} className="admin-media-row">
+                      <span>
+                        {c.name}
+                        {c.description && <span className="admin-dim"> — {c.description}</span>}
+                      </span>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        disabled={busy === `del-category-${c.id}`}
+                        onClick={() => deleteCategory(c.id, c.name)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ---------- CREATORS & IPS ---------- */}
+      {activeTab === 'creators' && (
+        <div className="admin-section admin-two-col">
+          <div>
+            <h4>Creators / Modellers</h4>
+            <p className="admin-hint">Required on every product — add yourself first (e.g. "Wolffewrought").</p>
+            <div className="admin-media-add">
+              <input
+                type="text"
+                placeholder="Creator name"
+                value={newModeller}
+                onChange={(e) => setNewModeller(e.target.value)}
+              />
+              <button className="btn btn-sm" disabled={busy === 'create-modeller'} onClick={createModeller}>
+                Add
+              </button>
+            </div>
+            {allModellers.map((m) => (
+              <div key={m.id} className="admin-media-row">
+                <span>{m.name}</span>
+                <button
+                  className="btn btn-sm btn-danger"
+                  disabled={busy === `del-modeller-${m.id}`}
+                  onClick={() => deleteModeller(m.id, m.name)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h4>IPs / Franchises</h4>
+            <p className="admin-hint">Optional product tag used by the storefront IP filter.</p>
+            <div className="admin-media-add">
+              <input
+                type="text"
+                placeholder="IP name"
+                value={newIp}
+                onChange={(e) => setNewIp(e.target.value)}
+              />
+              <button className="btn btn-sm" disabled={busy === 'create-ip'} onClick={createIp}>
+                Add
+              </button>
+            </div>
+            {allIps.map((ip) => (
+              <div key={ip.id} className="admin-media-row">
+                <span>{ip.name}</span>
+                <button
+                  className="btn btn-sm btn-danger"
+                  disabled={busy === `del-ip-${ip.id}`}
+                  onClick={() => deleteIp(ip.id, ip.name)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -315,6 +692,8 @@ const styles = `
     border-radius: var(--border-radius);
     margin-bottom: 1rem;
   }
+
+  .admin-hint { color: var(--secondary); font-size: 0.8rem; }
 
   .admin-stats {
     display: grid;
@@ -339,6 +718,7 @@ const styles = `
     gap: 0.5rem;
     margin-bottom: 1.5rem;
     border-bottom: 1px solid #e0e0e0;
+    overflow-x: auto;
   }
   .admin-tab {
     background: none;
@@ -348,6 +728,7 @@ const styles = `
     font-size: 1rem;
     color: var(--secondary);
     border-bottom: 2px solid transparent;
+    white-space: nowrap;
   }
   .admin-tab.active {
     color: var(--primary);
@@ -394,7 +775,7 @@ const styles = `
   .admin-dim { color: var(--secondary); font-size: 0.85em; }
   .admin-empty { color: var(--secondary); padding: 2rem 0; }
 
-  .admin-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .admin-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
   .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
   .btn-danger { background: var(--danger); }
   .admin-link { font-size: 0.85rem; }
@@ -412,9 +793,69 @@ const styles = `
   .admin-badge-delivered { background: rgba(40, 167, 69, 0.15); color: #155724; }
   .admin-badge-cancelled { background: rgba(220, 53, 69, 0.12); color: #721c24; }
 
+  .admin-media {
+    background: var(--light);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  .admin-media h4 { margin-bottom: 0.5rem; }
+  .admin-media-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e5e5e5;
+  }
+  .admin-media-url {
+    font-size: 0.8rem;
+    word-break: break-all;
+  }
+  .admin-media-add {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .admin-media-add input, .admin-media-add select {
+    flex: 1;
+    min-width: 140px;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #ccc;
+    border-radius: var(--border-radius);
+    font-size: 0.85rem;
+  }
+  .admin-media-add-file { flex-direction: column; align-items: stretch; }
+
+  .admin-cat-group {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .admin-cat-group h4 { margin-bottom: 0.5rem; }
+
+  .admin-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  .admin-two-col > div {
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 1.25rem;
+  }
+
   @media (max-width: 768px) {
     .admin-table { font-size: 0.8rem; }
     .admin-table th, .admin-table td { padding: 0.5rem; }
+    .admin-media { grid-template-columns: 1fr; }
+    .admin-two-col { grid-template-columns: 1fr; }
   }
 `;
 
