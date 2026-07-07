@@ -1,82 +1,49 @@
-const CACHE_NAME = 'storefront-v1';
-const URLS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-];
+// v2 — bump CACHE_NAME on every release so clients drop stale bundles
+const CACHE_NAME = 'storefront-v2';
 
-// Install event
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(URLS_TO_CACHE).catch((err) => {
-        console.log('Cache addAll error:', err);
-        return cache.addAll(['/']);
-      });
-    })
-  );
   self.skipWaiting();
 });
 
-// Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches.keys().then((names) =>
+      Promise.all(names.map((n) => (n !== CACHE_NAME ? caches.delete(n) : null)))
+    )
   );
   self.clients.claim();
 });
 
-// Fetch event - Network first, fallback to cache
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.method !== 'GET') return;
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
+  // API calls: network only (never cache API data)
+  if (request.url.includes('/api/')) return;
 
-  // API calls - network first
-  if (request.url.includes('/api/')) {
+  // Page navigations + HTML: network first so new deploys show immediately
+  if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
-            return response;
-          }
-          throw new Error('Network response was not ok');
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(request, copy));
+          return response;
         })
-        .catch(() => {
-          return caches.match(request);
-        })
+        .catch(() => caches.match(request))
     );
     return;
   }
 
-  // Static assets - cache first
+  // Hashed static assets (JS/CSS/images): cache first, fill from network
   event.respondWith(
-    caches.match(request).then((response) => {
-      if (response) {
-        return response;
-      }
-
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
       return fetch(request).then((response) => {
-        if (!response || response.status !== 200 || response.type === 'error') {
-          return response;
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(request, copy));
         }
-
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, responseToCache);
-        });
-
         return response;
       });
     })
