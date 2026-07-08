@@ -37,6 +37,37 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Get ALL orders (admin only) — must be defined before /:ticketId
+router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let sql = `
+      SELECT ot.*, u.username, u.email
+      FROM order_tickets ot
+      JOIN users u ON ot.user_id = u.id
+    `;
+    const params = [];
+
+    if (status) {
+      sql += ' WHERE ot.status = ?';
+      params.push(status);
+    }
+
+    sql += ' ORDER BY ot.created_at DESC';
+
+    const orders = await queryAll(sql, params);
+
+    res.json({
+      success: true,
+      data: orders,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 // Get single order with items
 router.get('/:ticketId', authenticateToken, async (req, res) => {
   try {
@@ -287,9 +318,13 @@ router.get('/:ticketId/pdf', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     
     const order = await queryOne(
-      'SELECT pdf_url FROM order_tickets WHERE ticket_id = ? AND user_id = ?',
-      [ticketId, userId]
+      'SELECT pdf_url, user_id FROM order_tickets WHERE ticket_id = ?',
+      [ticketId]
     );
+    
+    if (order && order.user_id !== userId && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, error: 'Not your order' });
+    }
     
     if (!order || !order.pdf_url) {
       return res.status(404).json({ success: false, error: 'PDF not found' });
