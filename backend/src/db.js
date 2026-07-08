@@ -157,6 +157,20 @@ CREATE INDEX IF NOT EXISTS idx_order_items_ticket ON order_items(order_ticket_id
 CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens(user_id);
 `;
 
+// PostgreSQL dialect version of the same schema
+const pgSchema = schema
+  .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
+  .replace(/DATETIME/g, 'TIMESTAMP')
+  .replace(/BOOLEAN DEFAULT 0/g, 'BOOLEAN DEFAULT FALSE');
+
+// For INSERTs, PostgreSQL only returns the new row id if asked
+function withReturning(sql) {
+  if (/^\s*INSERT\b/i.test(sql) && !/RETURNING/i.test(sql)) {
+    return sql.replace(/;?\s*$/, ' RETURNING id');
+  }
+  return sql;
+}
+
 export async function initializeDatabase() {
   try {
     if (config.dbType === 'postgresql') {
@@ -165,7 +179,7 @@ export async function initializeDatabase() {
       });
       
       const client = await db.connect();
-      await client.query(schema);
+      await client.query(pgSchema);
       client.release();
       console.log('✓ PostgreSQL database initialized');
     } else {
@@ -203,9 +217,12 @@ export async function initializeDatabase() {
 export async function query(sql, params = []) {
   return new Promise((resolve, reject) => {
     if (config.dbType === 'postgresql') {
-      db.query(sql, params, (err, result) => {
+      const isSelect = /^\s*SELECT\b/i.test(sql);
+      const pgSql = toPgPlaceholders(withReturning(sql));
+      db.query(pgSql, params, (err, result) => {
         if (err) reject(err);
-        else resolve(result);
+        else if (isSelect) resolve({ rows: result.rows });
+        else resolve({ lastID: result.rows?.[0]?.id, changes: result.rowCount, rows: result.rows });
       });
     } else {
       // SQLite
@@ -244,9 +261,11 @@ export async function queryOne(sql, params = []) {
 export async function queryAll(sql, params = []) {
   return new Promise((resolve, reject) => {
     if (config.dbType === 'postgresql') {
-      db.query(toPgPlaceholders(sql), params, (err, result) => {
+      const isSelect = /^\s*SELECT\b/i.test(sql);
+      db.query(toPgPlaceholders(withReturning(sql)), params, (err, result) => {
         if (err) reject(err);
-        else resolve(result.rows);
+        else if (isSelect) resolve(result.rows);
+        else resolve({ lastID: result.rows?.[0]?.id, changes: result.rowCount });
       });
     } else if (sql.trim().toUpperCase().startsWith('SELECT')) {
       db.all(sql, params, (err, rows) => {
