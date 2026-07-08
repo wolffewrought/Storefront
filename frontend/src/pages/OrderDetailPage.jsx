@@ -99,12 +99,12 @@ export const OrderDetailPage = () => {
     setSubmitting(true);
     try {
       const response = await ordersApi.submit(ticketId);
-      alert('Order submitted! Download your PDF:');
-      // Trigger PDF download
-      const link = document.createElement('a');
-      link.href = ordersApi.downloadPdf(ticketId);
-      link.download = `order_${ticketId}.pdf`;
-      link.click();
+      alert('Order submitted! Your PDF will download now.');
+      try {
+        await ordersApi.downloadPdfFile(ticketId);
+      } catch (e) {
+        // PDF can still be downloaded later from this page
+      }
       refetch();
     } catch (error) {
       alert(error.error || 'Failed to submit order');
@@ -113,11 +113,12 @@ export const OrderDetailPage = () => {
     }
   };
 
-  const handleDownloadPdf = () => {
-    const link = document.createElement('a');
-    link.href = ordersApi.downloadPdf(ticketId);
-    link.download = `order_${ticketId}.pdf`;
-    link.click();
+  const handleDownloadPdf = async () => {
+    try {
+      await ordersApi.downloadPdfFile(ticketId);
+    } catch (e) {
+      alert('PDF download failed — try again in a moment.');
+    }
   };
 
   const status = STATUS_LABELS[order.status] || { label: order.status, color: '#ccc' };
