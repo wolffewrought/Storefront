@@ -100,6 +100,25 @@ export const orders = {
   markPaid: (ticketId) => client.post(`/orders/${ticketId}/pay`),
   markDelivered: (ticketId) => client.post(`/orders/${ticketId}/deliver`),
   downloadPdf: (ticketId) => `${API_BASE}/orders/${ticketId}/pdf`,
+  // Authenticated PDF download — fetches with the auth header, then
+  // hands the browser a local blob URL to save. Plain <a href> to the
+  // API fails with "No token provided" because links carry no JWT.
+  downloadPdfFile: async (ticketId) => {
+    const token = localStorage.getItem('token');
+    const resp = await fetch(`${API_BASE}/orders/${ticketId}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!resp.ok) throw new Error(`PDF download failed (HTTP ${resp.status})`);
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `order_${ticketId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  },
   delete: (ticketId) => client.delete(`/orders/${ticketId}`),
 };
 
