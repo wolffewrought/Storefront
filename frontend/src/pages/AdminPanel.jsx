@@ -372,14 +372,12 @@ export const AdminPanel = () => {
                               Mark Delivered
                             </button>
                           )}
-                          <a
-                            className="admin-link"
-                            href={ordersApi.downloadPdf(order.ticket_id)}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => ordersApi.downloadPdfFile(order.ticket_id).catch(() => setError('PDF download failed'))}
                           >
                             PDF
-                          </a>
+                          </button>
                         </div>
                       </td>
                     </tr>
