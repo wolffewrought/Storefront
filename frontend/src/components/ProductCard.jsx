@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { RatingStars } from './RatingStars';
 
 export const ProductCard = ({ product }) => {
-  const image = product.images?.[0]?.image_url;
+  const image = product.images?.[0]?.image_url || product.primary_image;
   const ratingCount = product.total_ratings || 0;
 
   return (
