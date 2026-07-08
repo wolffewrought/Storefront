@@ -19,9 +19,7 @@ export const ProductDetailPage = () => {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const { data: product, loading, error, refetch } = useFetch(() =>
-    productsApi.get(id)
-  );
+  const { data: product, loading, error, refetch } = useFetch(() => productsApi.get(id), [id]);
 
   const handleAddToCart = () => {
     if (product) {
@@ -194,9 +192,7 @@ export const ProductDetailPage = () => {
                 <ul>
                   {files.map((file) => (
                     <li key={file.id}>
-                      <a href={file.file_url} target="_blank" rel="noreferrer">
-                        {file.file_name} ({file.file_type})
-                      </a>
+                      {file.file_name} ({file.file_type})
                     </li>
                   ))}
                 </ul>
