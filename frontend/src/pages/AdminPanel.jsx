@@ -7,6 +7,7 @@ import {
   ips as ipsApi,
   modellers as modellersApi,
   media as mediaApi,
+  downloads as downloadsApi,
 } from '../services/api';
 
 const TABS = [
@@ -44,8 +45,7 @@ export const AdminPanel = () => {
   // Media management
   const [mediaProductId, setMediaProductId] = useState(null);
   const [mediaDetail, setMediaDetail] = useState(null);
-  const [newImageUrl, setNewImageUrl] = useState('');
-  const [newFile, setNewFile] = useState({ fileName: '', fileUrl: '', fileType: 'stl' });
+  const [uploading, setUploading] = useState(null); // 'image' | 'file' | null
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -81,7 +81,7 @@ export const AdminPanel = () => {
   // Stats
   const stats = useMemo(() => ({
     revenue: allOrders
-      .filter((o) => o.status === 'paid' || o.status === 'delivered')
+      .filter((o) => o.status === 'paid' || o.status === 'archived')
       .reduce((sum, o) => sum + parseFloat(o.total || 0), 0),
     orders: allOrders.length,
     submitted: allOrders.filter((o) => o.status === 'submitted').length,
@@ -172,6 +172,22 @@ export const AdminPanel = () => {
     runAction(`del-modeller-${id}`, () => modellersApi.delete(id));
   };
 
+  const uploadToR2 = async (file, kind) => {
+    const res = await downloadsApi.getUploadUrl({
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+      kind,
+    });
+    const { uploadUrl, key, publicUrl } = res.data;
+    const put = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      body: file,
+    });
+    if (!put.ok) throw new Error('Upload to storage failed');
+    return { key, publicUrl };
+  };
+
   // Media management
   const openMedia = async (productId) => {
     if (mediaProductId === productId) {
@@ -195,13 +211,24 @@ export const AdminPanel = () => {
     setMediaDetail(res.data || res);
   };
 
-  const addImage = () => {
-    if (!newImageUrl) return;
-    runAction('add-image', async () => {
-      await mediaApi.addImage(mediaProductId, { imageUrl: newImageUrl, displayOrder: (mediaDetail?.images?.length || 0) });
-      setNewImageUrl('');
+  const handleImagePick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading('image');
+    setError(null);
+    try {
+      const { publicUrl } = await uploadToR2(file, 'image');
+      await mediaApi.addImage(mediaProductId, {
+        imageUrl: publicUrl,
+        displayOrder: (mediaDetail?.images?.length || 0),
+      });
       await reloadMedia();
-    });
+    } catch (err) {
+      setError(err.error || String(err));
+    } finally {
+      setUploading(null);
+    }
   };
 
   const removeImage = (imageId) =>
@@ -210,13 +237,26 @@ export const AdminPanel = () => {
       await reloadMedia();
     });
 
-  const addFile = () => {
-    if (!newFile.fileName || !newFile.fileUrl) { setError('File name and URL required'); return; }
-    runAction('add-file', async () => {
-      await mediaApi.addFile(mediaProductId, newFile);
-      setNewFile({ fileName: '', fileUrl: '', fileType: 'stl' });
+  const handleFilePick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading('file');
+    setError(null);
+    try {
+      const { key } = await uploadToR2(file, 'file');
+      const ext = (file.name.split('.').pop() || 'other').toLowerCase();
+      await mediaApi.addFile(mediaProductId, {
+        fileName: file.name,
+        fileUrl: key, // object key, NOT a public URL — served via gated presigned links
+        fileType: ['stl', 'zip', '3mf', 'obj'].includes(ext) ? ext : 'other',
+      });
       await reloadMedia();
-    });
+    } catch (err) {
+      setError(err.error || String(err));
+    } finally {
+      setUploading(null);
+    }
   };
 
   const removeFile = (fileId) =>
@@ -480,15 +520,16 @@ export const AdminPanel = () => {
                                       </div>
                                     ))}
                                     <div className="admin-media-add">
-                                      <input
-                                        type="text"
-                                        placeholder="Image URL"
-                                        value={newImageUrl}
-                                        onChange={(e) => setNewImageUrl(e.target.value)}
-                                      />
-                                      <button className="btn btn-sm" disabled={busy === 'add-image'} onClick={addImage}>
-                                        Add
-                                      </button>
+                                      <label className="btn btn-sm admin-upload-btn">
+                                        {uploading === 'image' ? 'Uploading…' : '+ Upload Image'}
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          hidden
+                                          disabled={uploading !== null}
+                                          onChange={handleImagePick}
+                                        />
+                                      </label>
                                     </div>
                                   </div>
 
@@ -510,32 +551,18 @@ export const AdminPanel = () => {
                                         </button>
                                       </div>
                                     ))}
-                                    <div className="admin-media-add admin-media-add-file">
-                                      <input
-                                        type="text"
-                                        placeholder="File name (e.g. blade_v4.zip)"
-                                        value={newFile.fileName}
-                                        onChange={(e) => setNewFile({ ...newFile, fileName: e.target.value })}
-                                      />
-                                      <input
-                                        type="text"
-                                        placeholder="File URL"
-                                        value={newFile.fileUrl}
-                                        onChange={(e) => setNewFile({ ...newFile, fileUrl: e.target.value })}
-                                      />
-                                      <select
-                                        value={newFile.fileType}
-                                        onChange={(e) => setNewFile({ ...newFile, fileType: e.target.value })}
-                                      >
-                                        <option value="stl">STL</option>
-                                        <option value="zip">ZIP</option>
-                                        <option value="3mf">3MF</option>
-                                        <option value="obj">OBJ</option>
-                                        <option value="other">Other</option>
-                                      </select>
-                                      <button className="btn btn-sm" disabled={busy === 'add-file'} onClick={addFile}>
-                                        Add
-                                      </button>
+                                    <div className="admin-media-add">
+                                      <label className="btn btn-sm admin-upload-btn">
+                                        {uploading === 'file' ? 'Uploading…' : '+ Upload File'}
+                                        <input
+                                          type="file"
+                                          accept=".stl,.zip,.3mf,.obj"
+                                          hidden
+                                          disabled={uploading !== null}
+                                          onChange={handleFilePick}
+                                        />
+                                      </label>
+                                      <span className="admin-hint">Stored privately — customers get expiring links after delivery.</span>
                                     </div>
                                   </div>
                                 </>
@@ -791,6 +818,7 @@ const styles = `
   .admin-badge-submitted { background: rgba(255, 193, 7, 0.2); color: #8a6d00; }
   .admin-badge-paid { background: rgba(23, 162, 184, 0.15); color: #0c5460; }
   .admin-badge-delivered { background: rgba(40, 167, 69, 0.15); color: #155724; }
+  .admin-badge-archived { background: rgba(40, 167, 69, 0.15); color: #155724; }
   .admin-badge-cancelled { background: rgba(220, 53, 69, 0.12); color: #721c24; }
 
   .admin-media {
@@ -828,7 +856,7 @@ const styles = `
     border-radius: var(--border-radius);
     font-size: 0.85rem;
   }
-  .admin-media-add-file { flex-direction: column; align-items: stretch; }
+  .admin-upload-btn { display: inline-block; cursor: pointer; }
 
   .admin-cat-group {
     background: var(--white);
