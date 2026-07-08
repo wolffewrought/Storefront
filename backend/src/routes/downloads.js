@@ -66,7 +66,7 @@ router.get('/order/:ticketId', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
-    if (order.user_id !== req.user.id && !req.user.isAdmin) {
+    if (order.user_id !== req.user.userId && !req.user.isAdmin) {
       return res.status(403).json({ success: false, error: 'Not your order' });
     }
 
