@@ -104,6 +104,11 @@ export const orders = {
 };
 
 // Media
+export const downloads = {
+  getUploadUrl: (data) => client.post('/downloads/upload-url', data),
+  forOrder: (ticketId) => client.get(`/downloads/order/${ticketId}`),
+};
+
 export const media = {
   addImage: (productId, data) =>
     client.post(`/media/images/${productId}`, data),
