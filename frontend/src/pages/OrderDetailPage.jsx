@@ -2,13 +2,63 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch';
 import { useAuthContext } from '../context/AuthContext';
-import { orders as ordersApi } from '../services/api';
+import { orders as ordersApi, downloads as downloadsApi } from '../services/api';
 
 const STATUS_LABELS = {
   draft: { label: 'Draft', color: '#6c757d' },
   submitted: { label: 'Submitted', color: '#17a2b8' },
   paid: { label: 'Paid', color: '#ffc107' },
   archived: { label: 'Delivered', color: '#28a745' },
+};
+
+const DownloadsSection = ({ ticketId }) => {
+  const [files, setFiles] = useState(null);
+  const [err, setErr] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await downloadsApi.forOrder(ticketId);
+      setFiles(res.data || []);
+    } catch (e) {
+      setErr(e.error || 'Could not load downloads');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => { load(); /* eslint-disable-next-line */ }, [ticketId]);
+
+  return (
+    <div className="card mt-3">
+      <h3>Your Downloads</h3>
+      {loading && <p>Loading…</p>}
+      {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
+      {files && files.length === 0 && (
+        <p style={{ color: 'var(--secondary)' }}>No digital files in this order.</p>
+      )}
+      {files && files.map((f) => (
+        <div
+          key={f.id}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid #eee', gap: '0.5rem' }}
+        >
+          <span style={{ wordBreak: 'break-all' }}>
+            {f.fileName} <span style={{ color: 'var(--secondary)', fontSize: '0.85em' }}>({f.productName})</span>
+          </span>
+          <a className="btn btn-small btn-primary" href={f.url} target="_blank" rel="noreferrer">
+            Download
+          </a>
+        </div>
+      ))}
+      {files && files.length > 0 && (
+        <p style={{ color: 'var(--secondary)', fontSize: '0.8rem', marginTop: '0.75rem' }}>
+          Links expire after a short time — refresh this page for fresh ones.
+        </p>
+      )}
+    </div>
+  );
 };
 
 export const OrderDetailPage = () => {
@@ -118,6 +168,7 @@ export const OrderDetailPage = () => {
 
           {/* Details */}
           <div className="order-details">
+            {order.status === 'archived' && <DownloadsSection ticketId={ticketId} />}
             <div className="card">
               <h3>Customer Details</h3>
               <p><strong>Name:</strong> {order.customer_name}</p>
