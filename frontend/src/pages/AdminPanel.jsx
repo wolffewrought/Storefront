@@ -173,18 +173,30 @@ export const AdminPanel = () => {
   };
 
   const uploadToR2 = async (file, kind) => {
-    const res = await downloadsApi.getUploadUrl({
-      fileName: file.name,
-      contentType: file.type || 'application/octet-stream',
-      kind,
-    });
+    let res;
+    try {
+      res = await downloadsApi.getUploadUrl({
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+        kind,
+      });
+    } catch (err) {
+      throw new Error(`Step 1 (backend permission) failed: ${err.error || err.message || err}`);
+    }
     const { uploadUrl, key, publicUrl } = res.data;
-    const put = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type || 'application/octet-stream' },
-      body: file,
-    });
-    if (!put.ok) throw new Error('Upload to storage failed');
+    let put;
+    try {
+      put = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+    } catch (err) {
+      throw new Error(
+        `Step 2 (upload to Cloudflare) failed — this is a CORS or bucket-URL problem. Target host: ${new URL(uploadUrl).hostname}`
+      );
+    }
+    if (!put.ok) throw new Error(`Step 2: Cloudflare rejected the upload (HTTP ${put.status})`);
     return { key, publicUrl };
   };
 
