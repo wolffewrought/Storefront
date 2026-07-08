@@ -108,6 +108,11 @@ export const AdminPanel = () => {
   const markDelivered = (ticketId) =>
     runAction(`deliver-${ticketId}`, () => ordersApi.markDelivered(ticketId));
 
+  const deleteOrder = (ticketId) => {
+    if (!window.confirm(`Delete order ${ticketId}? The customer will lose access to it (including downloads). This cannot be undone.`)) return;
+    runAction(`del-order-${ticketId}`, () => ordersApi.adminDelete(ticketId));
+  };
+
   // Product actions
   const createProduct = () => {
     if (!newProduct.name || !newProduct.price || !newProduct.categoryId || !newProduct.modellerId) {
@@ -377,6 +382,13 @@ export const AdminPanel = () => {
                             onClick={() => ordersApi.downloadPdfFile(order.ticket_id).catch(() => setError('PDF download failed'))}
                           >
                             PDF
+                          </button>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            disabled={busy === `del-order-${order.ticket_id}`}
+                            onClick={() => deleteOrder(order.ticket_id)}
+                          >
+                            Delete
                           </button>
                         </div>
                       </td>
