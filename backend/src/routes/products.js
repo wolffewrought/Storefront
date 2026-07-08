@@ -15,7 +15,10 @@ router.get('/', async (req, res) => {
         c.name as category_name,
         c.type as category_type,
         i.name as ip_name,
-        m.name as modeller_name
+        m.name as modeller_name,
+        (SELECT pi.image_url FROM product_images pi
+         WHERE pi.product_id = p.id
+         ORDER BY pi.display_order ASC, pi.id ASC LIMIT 1) as primary_image
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN ips i ON p.ip_id = i.id
@@ -86,7 +89,10 @@ router.get('/:id', async (req, res) => {
         c.name as category_name,
         c.type as category_type,
         i.name as ip_name,
-        m.name as modeller_name
+        m.name as modeller_name,
+        (SELECT pi.image_url FROM product_images pi
+         WHERE pi.product_id = p.id
+         ORDER BY pi.display_order ASC, pi.id ASC LIMIT 1) as primary_image
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN ips i ON p.ip_id = i.id
