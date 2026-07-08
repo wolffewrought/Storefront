@@ -29,6 +29,24 @@ table {
   max-width: 100%;
 }
 
+/* Brand banner — extremely faded, fixed behind everything;
+   content scrolls over it */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('/brand-banner.jpg') center top / cover no-repeat;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Keep app content above the banner layer */
+#root {
+  position: relative;
+  z-index: 1;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
