@@ -29,19 +29,9 @@ table {
   max-width: 100%;
 }
 
-/* Brand banner — extremely faded, fixed behind everything;
-   content scrolls over it */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: url('/brand-banner.jpg') center top / cover no-repeat;
-  opacity: 0.05;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Keep app content above the banner layer */
+/* Brand banner overlay lives in public/index.html (a <style> block)
+   so the bundler doesn't try to resolve the image path. #root stays
+   above it: */
 #root {
   position: relative;
   z-index: 1;
