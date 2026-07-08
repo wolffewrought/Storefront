@@ -80,7 +80,8 @@ const productCardStyles = `
   .product-image img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    background: var(--light);
   }
 
   .image-placeholder {
