@@ -20,7 +20,8 @@ export const Header = () => {
       <div className="container">
         <div className="flex flex-between" style={{ padding: '1rem 0' }}>
           <Link to="/" className="logo">
-            Wolffewrought
+            <img src="/logo.png" alt="" className="logo-mark" />
+            <span className="logo-text">Wolffewrought</span>
           </Link>
 
           <nav className="nav-links">
@@ -77,6 +78,18 @@ const headerStyles = `
   }
 
   .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .logo-mark {
+    width: 36px;
+    height: 36px;
+    display: block;
+  }
+
+  .logo-text {
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--primary);
@@ -87,6 +100,15 @@ const headerStyles = `
     display: flex;
     align-items: center;
     gap: 2rem;
+    min-width: 0;
+  }
+
+  @media (max-width: 768px) {
+    .nav-links { gap: 1rem; }
+    /* Shop/Cart live in the bottom nav on phones — avoid a cramped double nav */
+    .nav-links > a { display: none; }
+    .logo-text { font-size: 1.2rem; }
+    .dropdown-menu { max-width: calc(100vw - 2rem); }
   }
 
   .nav-links a {
