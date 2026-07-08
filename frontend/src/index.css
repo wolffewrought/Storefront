@@ -196,6 +196,19 @@ textarea {
   gap: 1.5rem;
 }
 
+/* Grid blowout containment: children may never force a track wider
+   than the container, regardless of their content's natural size */
+.grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.product-card,
+.product-image,
+.product-image img {
+  max-width: 100%;
+}
+
 .grid-2 {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
 }
