@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuthContext } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import { Header } from './components/Header';
 
 // Pages
@@ -87,7 +88,9 @@ const Footer = () => (
 export default function App() {
   return (
     <AuthProvider>
+      <CartProvider>
       <AppContent />
+      </CartProvider>
     </AuthProvider>
   );
 }
