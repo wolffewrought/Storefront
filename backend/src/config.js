@@ -27,6 +27,17 @@ export const config = {
   // File Storage
   ticketStoragePath: process.env.TICKET_STORAGE_PATH || './data/tickets',
   
+  // Cloudflare R2 storage
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    filesBucket: process.env.R2_FILES_BUCKET || 'wolffewrought-files',
+    imagesBucket: process.env.R2_IMAGES_BUCKET || 'wolffewrought-images',
+    imagesPublicUrl: process.env.R2_IMAGES_PUBLIC_URL || '',
+    downloadExpirySeconds: parseInt(process.env.R2_DOWNLOAD_EXPIRY || '1800'),
+  },
+
   // Session
   sessionSecret: process.env.SESSION_SECRET || 'session-secret-change-in-production',
 };

@@ -15,6 +15,7 @@ import modellerRoutes from './routes/modellers.js';
 import reviewRoutes from './routes/reviews.js';
 import orderRoutes from './routes/orders.js';
 import mediaRoutes from './routes/media.js';
+import downloadRoutes from './routes/downloads.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -38,6 +39,7 @@ app.use('/api/modellers', modellerRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/downloads', downloadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
