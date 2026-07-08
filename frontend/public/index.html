@@ -13,6 +13,18 @@
     <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="%PUBLIC_URL%/logo64.png" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+    <style>
+      /* Brand banner — extremely faded, fixed behind everything */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: url('%PUBLIC_URL%/brand-banner.jpg') center top / cover no-repeat;
+        opacity: 0.05;
+        pointer-events: none;
+        z-index: 0;
+      }
+    </style>
     <title>Wolffewrought</title>
   </head>
   <body>
