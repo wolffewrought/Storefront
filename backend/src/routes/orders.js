@@ -68,6 +68,25 @@ router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Delete any order (admin only) — must be defined before /:ticketId routes
+router.delete('/admin/:ticketId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const order = await queryOne(
+      'SELECT id FROM order_tickets WHERE ticket_id = ?',
+      [ticketId]
+    );
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    await queryAll('DELETE FROM order_tickets WHERE id = ?', [order.id]);
+    res.json({ success: true, message: 'Order deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 // Get single order with items
 router.get('/:ticketId', authenticateToken, async (req, res) => {
   try {
