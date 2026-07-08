@@ -107,7 +107,7 @@ router.get('/:id', async (req, res) => {
     // Get media
     const images = await queryAll('SELECT id, image_url, display_order FROM product_images WHERE product_id = ? ORDER BY display_order', [id]);
     const videos = await queryAll('SELECT id, video_url, display_order FROM product_videos WHERE product_id = ? ORDER BY display_order', [id]);
-    const files = await queryAll('SELECT id, file_name, file_url, file_type FROM product_files WHERE product_id = ?', [id]);
+    const files = await queryAll('SELECT id, file_name, file_type FROM product_files WHERE product_id = ?', [id]);
     
     // Get reviews
     const reviews = await queryAll(`
