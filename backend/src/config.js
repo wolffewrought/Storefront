@@ -12,9 +12,11 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   
   // Database
-  dbType: process.env.DB_TYPE || 'sqlite', // 'sqlite' or 'postgresql'
+  // 'sqlite' or 'postgresql'. If DB_TYPE isn't set (or got mangled),
+  // the presence of DATABASE_URL means PostgreSQL.
+  dbType: clean(process.env.DB_TYPE) || (clean(process.env.DATABASE_URL) ? 'postgresql' : 'sqlite'),
   dbPath: process.env.DB_PATH || './data/storefront.db',
-  databaseUrl: process.env.DATABASE_URL, // For Railway PostgreSQL
+  databaseUrl: clean(process.env.DATABASE_URL), // For Railway PostgreSQL
   
   // JWT
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
