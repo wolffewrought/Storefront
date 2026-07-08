@@ -93,6 +93,7 @@ export const orders = {
     client.get('/orders', { params: status ? { status } : {} }),
   adminAll: (status = null) =>
     client.get('/orders/admin/all', { params: status ? { status } : {} }),
+  adminDelete: (ticketId) => client.delete(`/orders/admin/${ticketId}`),
   get: (ticketId) => client.get(`/orders/${ticketId}`),
   create: (data) => client.post('/orders', data),
   update: (ticketId, data) => client.put(`/orders/${ticketId}`, data),
