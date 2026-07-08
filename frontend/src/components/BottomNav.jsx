@@ -101,12 +101,9 @@ const styles = `
       padding: 0 3px;
     }
 
-    /* Keep content clear of the fixed nav */
-    .main-content {
-      padding-bottom: 5rem;
-    }
-    .footer {
-      margin-bottom: 3.5rem;
+    /* Keep ALL content (incl. footer) clear of the fixed nav */
+    body {
+      padding-bottom: 4.5rem;
     }
   }
 `;
