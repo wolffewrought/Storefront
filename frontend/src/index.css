@@ -9,6 +9,26 @@ html, body, #root {
   height: 100%;
 }
 
+/* Mobile: vertical scrolling only — nothing may push the page wider
+   than the viewport */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+img, video, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+h1, h2, h3 {
+  overflow-wrap: break-word;
+}
+
+table {
+  max-width: 100%;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
