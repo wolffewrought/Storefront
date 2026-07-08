@@ -233,11 +233,11 @@ export const OrderDetailPage = () => {
                 </button>
               )}
 
-              {order.status === 'draft' && (
+              {(order.status === 'draft' || order.status === 'submitted') && (
                 <button
                   className="btn btn-danger"
                   onClick={async () => {
-                    if (window.confirm('Delete this order?')) {
+                    if (window.confirm('Cancel and delete this order? This cannot be undone.')) {
                       try {
                         await ordersApi.delete(ticketId);
                         navigate('/orders');
@@ -248,7 +248,7 @@ export const OrderDetailPage = () => {
                   }}
                   style={{ width: '100%', marginTop: '0.5rem' }}
                 >
-                  Delete Order
+                  {order.status === 'draft' ? 'Delete Order' : 'Cancel Order'}
                 </button>
               )}
 
