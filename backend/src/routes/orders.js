@@ -228,12 +228,16 @@ router.post('/:ticketId/submit', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     
     const order = await queryOne(
-      'SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ? AND status = ?',
-      [ticketId, userId, 'draft']
+      `SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ?
+       AND status IN ('draft', 'submitted')`,
+      [ticketId, userId]
     );
     
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Draft order not found' });
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found, or it has already been paid — contact us to cancel a paid order',
+      });
     }
     
     // Generate PDF
@@ -350,12 +354,16 @@ router.delete('/:ticketId', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     
     const order = await queryOne(
-      'SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ? AND status = ?',
-      [ticketId, userId, 'draft']
+      `SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ?
+       AND status IN ('draft', 'submitted')`,
+      [ticketId, userId]
     );
     
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Draft order not found' });
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found, or it has already been paid — contact us to cancel a paid order',
+      });
     }
     
     await queryAll('DELETE FROM order_tickets WHERE id = ?', [order.id]);
