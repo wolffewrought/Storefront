@@ -2,6 +2,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Defensive cleaner for env vars pasted via dashboards:
+// strips whitespace, surrounding quotes, and stray leading/trailing '=' or '.'
+const clean = (v) => (v || '').trim().replace(/^["'=.\s]+|["'=.\s]+$/g, '') || undefined;
+
 export const config = {
   // Server
   port: process.env.PORT || 3001,
@@ -29,12 +33,12 @@ export const config = {
   
   // Cloudflare R2 storage
   r2: {
-    accountId: process.env.R2_ACCOUNT_ID,
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-    filesBucket: process.env.R2_FILES_BUCKET || 'wolffewrought-files',
-    imagesBucket: process.env.R2_IMAGES_BUCKET || 'wolffewrought-images',
-    imagesPublicUrl: process.env.R2_IMAGES_PUBLIC_URL || '',
+    accountId: clean(process.env.R2_ACCOUNT_ID),
+    accessKeyId: clean(process.env.R2_ACCESS_KEY_ID),
+    secretAccessKey: clean(process.env.R2_SECRET_ACCESS_KEY),
+    filesBucket: clean(process.env.R2_FILES_BUCKET) || 'wolffewrought-files',
+    imagesBucket: clean(process.env.R2_IMAGES_BUCKET) || 'wolffewrought-images',
+    imagesPublicUrl: clean(process.env.R2_IMAGES_PUBLIC_URL) || '',
     downloadExpirySeconds: parseInt(process.env.R2_DOWNLOAD_EXPIRY || '1800'),
   },
 
