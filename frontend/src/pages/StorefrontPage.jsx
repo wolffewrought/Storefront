@@ -19,7 +19,8 @@ export const StorefrontPage = () => {
 
   // Fetch all data
   const { data: allProducts, loading: productsLoading, error: productsError } = useFetch(
-    () => productsApi.list({ type: activeType })
+    () => productsApi.list({ type: activeType }),
+    [activeType]
   );
 
   const { data: categoriesData } = useFetch(() => categoriesApi.list());
@@ -334,12 +335,26 @@ const styles = `
 
   @media (max-width: 768px) {
     .storefront-content {
-      grid-template-columns: 1fr;
+      /* minmax(0, 1fr): the track may NEVER exceed the container,
+         even when a child (the filter sidebar's inputs) demands more */
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .storefront-content > * {
+      min-width: 0;
+      max-width: 100%;
     }
 
     .filters-sidebar {
       position: static;
       margin-bottom: 2rem;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .filters-sidebar input {
+      min-width: 0;
+      width: 100%;
     }
 
     .tabs {
