@@ -34,6 +34,11 @@ export const config = {
   ticketStoragePath: process.env.TICKET_STORAGE_PATH || './data/tickets',
   
   // Cloudflare R2 storage
+  // Email (Resend) — optional
+  resendApiKey: clean(process.env.RESEND_API_KEY),
+  emailFrom: clean(process.env.EMAIL_FROM),
+  adminEmail: clean(process.env.ADMIN_EMAIL),
+
   r2: {
     accountId: clean(process.env.R2_ACCOUNT_ID),
     accessKeyId: clean(process.env.R2_ACCESS_KEY_ID),
