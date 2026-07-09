@@ -15,6 +15,8 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrderHistoryPage } from './pages/OrderHistoryPage';
 import { AdminPanel } from './pages/AdminPanel';
 import { BottomNav } from './components/BottomNav';
+import { PrivacyPage, TermsPage, RefundsPage, ContactPage } from './pages/PolicyPages';
+import { Analytics } from '@vercel/analytics/react';
 
 // Protected Route
 const ProtectedRoute = ({ children }) => {
@@ -68,11 +70,17 @@ const AppContent = () => {
             }
           />
 
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/refunds" element={<RefundsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
       <Footer />
       <BottomNav />
+      <Analytics />
     </Router>
   );
 };
@@ -81,6 +89,12 @@ const Footer = () => (
   <footer className="footer">
     <div className="container">
       <p>&copy; 2026 Wolffewrought. All rights reserved.</p>
+      <p className="footer-links">
+        <Link to="/terms">Terms</Link>
+        <Link to="/privacy">Privacy</Link>
+        <Link to="/refunds">Refunds</Link>
+        <Link to="/contact">Contact</Link>
+      </p>
     </div>
   </footer>
 );
@@ -106,6 +120,15 @@ const footerStyles = `
 
   .footer a {
     color: var(--white);
+  }
+
+  .footer-links {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 1.25rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 0.9rem;
   }
 
   @media (max-width: 768px) {
