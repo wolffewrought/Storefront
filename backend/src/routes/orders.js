@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { queryOne, queryAll } from '../db.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import { generateOrderPDF } from '../services/pdfService.js';
+import { sendOrderSubmitted, sendAdminNewOrder, sendOrderDelivered } from '../services/emailService.js';
 import fs from 'fs';
 import path from 'path';
 import config from '../config.js';
@@ -287,7 +288,18 @@ router.post('/:ticketId/submit', authenticateToken, async (req, res) => {
       SET status = ?, submitted_at = CURRENT_TIMESTAMP, pdf_url = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, ['submitted', pdfUrl, order.id]);
-    
+
+    // Notify customer + admin (fire-and-forget; never block the response)
+    try {
+      const full = await queryOne(
+        `SELECT ot.*, u.email, u.username FROM order_tickets ot
+         JOIN users u ON ot.user_id = u.id WHERE ot.id = ?`, [order.id]);
+      const custEmail = full.customer_email || full.email;
+      const custName = full.customer_name || full.username;
+      sendOrderSubmitted({ to: custEmail, name: custName, ticketId, total: full.total_price });
+      sendAdminNewOrder({ ticketId, customerName: custName, customerEmail: custEmail, total: full.total_price });
+    } catch (e) { console.error('submit email error', e); }
+
     res.json({ success: true, message: 'Order submitted', pdfUrl });
   } catch (error) {
     console.error(error);
@@ -345,7 +357,33 @@ router.post('/:ticketId/deliver', authenticateToken, requireAdmin, async (req, r
       SET status = ?, delivered_at = CURRENT_TIMESTAMP, archived_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, ['archived', order.id]);
-    
+
+    // Bump download_count for each digital product in the order
+    let hasDigital = false;
+    try {
+      const files = await queryAll(
+        `SELECT DISTINCT p.id FROM order_items oi
+         JOIN products p ON oi.product_id = p.id
+         JOIN product_files pf ON pf.product_id = p.id
+         WHERE oi.order_ticket_id = ?`, [order.id]);
+      hasDigital = files.length > 0;
+      for (const f of files) {
+        await queryAll('UPDATE products SET download_count = COALESCE(download_count,0) + 1 WHERE id = ?', [f.id]);
+      }
+    } catch (e) { console.error('download_count error', e); }
+
+    // Notify customer
+    try {
+      const full = await queryOne(
+        `SELECT ot.*, u.email, u.username FROM order_tickets ot
+         JOIN users u ON ot.user_id = u.id WHERE ot.id = ?`, [order.id]);
+      sendOrderDelivered({
+        to: full.customer_email || full.email,
+        name: full.customer_name || full.username,
+        ticketId, hasDigital,
+      });
+    } catch (e) { console.error('deliver email error', e); }
+
     res.json({ success: true, message: 'Order delivered and archived' });
   } catch (error) {
     console.error(error);
