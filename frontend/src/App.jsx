@@ -107,6 +107,14 @@ const footerStyles = `
   .footer a {
     color: var(--white);
   }
+
+  @media (max-width: 768px) {
+    /* Extend the footer's own dark padding beneath the fixed bottom
+       nav so its text always sits fully visible above it */
+    .footer {
+      padding-bottom: 6rem;
+    }
+  }
 `;
 
 const style = document.createElement('style');
