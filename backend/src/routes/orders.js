@@ -132,7 +132,26 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'No items in order' });
     }
     
-    const ticketId = `ORD-${Date.now()}-${uuidv4().substring(0, 8)}`;
+    // Ticket naming: {customerNo}-{customerOrderSeq}-{HHMM}-{DDMMYYYY}
+    // e.g. the 67th customer's first order at 21:32 on 25/07/2026
+    // becomes 67-0001-2132-25072026
+    const now = new Date();
+    const pad = (n, len = 2) => String(n).padStart(len, '0');
+    const prior = await queryOne(
+      'SELECT COUNT(*) AS c FROM order_tickets WHERE user_id = ?',
+      [userId]
+    );
+    const seq = pad((prior?.c || 0) + 1, 4);
+    const hhmm = pad(now.getHours()) + pad(now.getMinutes());
+    const ddmmyyyy = pad(now.getDate()) + pad(now.getMonth() + 1) + now.getFullYear();
+    let ticketId = `${userId}-${seq}-${hhmm}-${ddmmyyyy}`;
+
+    // Uniqueness guard (e.g. an earlier order in the sequence was deleted,
+    // then a new one lands in the same minute)
+    const clash = await queryOne('SELECT id FROM order_tickets WHERE ticket_id = ?', [ticketId]);
+    if (clash) {
+      ticketId += `-${uuidv4().substring(0, 4)}`;
+    }
     
     // Calculate total
     let totalPrice = 0;
