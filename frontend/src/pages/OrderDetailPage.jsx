@@ -169,6 +169,26 @@ export const OrderDetailPage = () => {
 
           {/* Details */}
           <div className="order-details">
+            {order.status === 'submitted' && (
+              <div className="card" style={{ borderLeft: '4px solid #17a2b8', marginBottom: '1rem' }}>
+                <h3 style={{ marginTop: 0 }}>What happens next</h3>
+                <p style={{ marginBottom: 0 }}>
+                  We've received your order and will contact you at your account email with
+                  payment details, usually within 24 hours. Once payment is confirmed we'll
+                  prepare your order — for digital items, download links will appear here after
+                  it's marked delivered.
+                </p>
+              </div>
+            )}
+            {order.status === 'paid' && (
+              <div className="card" style={{ borderLeft: '4px solid #28a745', marginBottom: '1rem' }}>
+                <h3 style={{ marginTop: 0 }}>Payment received</h3>
+                <p style={{ marginBottom: 0 }}>
+                  Thanks — your payment is confirmed and your order is being prepared. You'll be
+                  notified when it's delivered.
+                </p>
+              </div>
+            )}
             {order.status === 'archived' && <DownloadsSection ticketId={ticketId} />}
             <div className="card">
               <h3>Customer Details</h3>

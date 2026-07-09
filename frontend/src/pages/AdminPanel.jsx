@@ -3,6 +3,7 @@ import { useFetch } from '../hooks/useFetch';
 import {
   orders as ordersApi,
   products as productsApi,
+  backup as backupApi,
   categories as categoriesApi,
   ips as ipsApi,
   modellers as modellersApi,
@@ -137,6 +138,39 @@ export const AdminPanel = () => {
   const deleteProduct = (id, name) => {
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
     runAction(`del-product-${id}`, () => productsApi.delete(id));
+  };
+
+  const [editProductId, setEditProductId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const startEdit = (p) => {
+    setEditProductId(p.id);
+    setEditForm({
+      name: p.name, description: p.description || '', price: p.price,
+      categoryId: p.category_id || '', ipId: p.ip_id || '',
+      modellerId: p.modeller_id || '', stockCount: p.stock_count ?? '',
+    });
+  };
+  const saveEdit = () => {
+    runAction(`edit-${editProductId}`, async () => {
+      await productsApi.update(editProductId, {
+        name: editForm.name,
+        description: editForm.description,
+        price: parseFloat(editForm.price),
+        categoryId: editForm.categoryId ? parseInt(editForm.categoryId) : null,
+        ipId: editForm.ipId ? parseInt(editForm.ipId) : null,
+        modellerId: editForm.modellerId ? parseInt(editForm.modellerId) : null,
+        stockCount: editForm.stockCount !== '' ? parseInt(editForm.stockCount) : null,
+      });
+      setEditProductId(null);
+    });
+  };
+
+  const [backupMsg, setBackupMsg] = useState(null);
+  const runBackup = () => {
+    setBackupMsg('Backing up…');
+    backupApi.database()
+      .then((r) => setBackupMsg(`Backup saved (${Math.round((r.data?.sizeBytes || 0)/1024)} KB)`))
+      .catch((e) => setBackupMsg(`Backup failed: ${e.error || e}`));
   };
 
   // Category actions
@@ -290,6 +324,10 @@ export const AdminPanel = () => {
     <div className="container admin-panel">
       <h1>Admin Panel</h1>
       <p className="admin-sub">Wolffewrought store management</p>
+      <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="btn btn-sm" onClick={runBackup}>Back up database</button>
+        {backupMsg && <span className="admin-dim">{backupMsg}</span>}
+      </div>
 
       {error && <div className="admin-error">{error}</div>}
 
@@ -504,6 +542,9 @@ export const AdminPanel = () => {
                         <td className="admin-mono">£{parseFloat(p.price).toFixed(2)}</td>
                         <td>
                           <div className="admin-actions">
+                            <button className="btn btn-sm" onClick={() => startEdit(p)}>
+                              Edit
+                            </button>
                             <button className="btn btn-sm" onClick={() => openMedia(p.id)}>
                               {mediaProductId === p.id ? 'Close' : 'Media'}
                             </button>
@@ -517,6 +558,43 @@ export const AdminPanel = () => {
                           </div>
                         </td>
                       </tr>
+                      {editProductId === p.id && (
+                        <tr>
+                          <td colSpan={5}>
+                            <div className="admin-form" style={{ margin: '0.5rem 0' }}>
+                              <input type="text" placeholder="Name" value={editForm.name}
+                                onChange={(e)=>setEditForm({...editForm,name:e.target.value})} />
+                              <input type="number" step="0.01" min="0" placeholder="Price"
+                                value={editForm.price}
+                                onChange={(e)=>setEditForm({...editForm,price:e.target.value})} />
+                              <select value={editForm.categoryId}
+                                onChange={(e)=>setEditForm({...editForm,categoryId:e.target.value})}>
+                                <option value="">Category…</option>
+                                {flatCategories.map((c)=>(<option key={c.id} value={c.id}>{c.name} ({c.type})</option>))}
+                              </select>
+                              <select value={editForm.modellerId}
+                                onChange={(e)=>setEditForm({...editForm,modellerId:e.target.value})}>
+                                <option value="">Creator…</option>
+                                {allModellers.map((m)=>(<option key={m.id} value={m.id}>{m.name}</option>))}
+                              </select>
+                              <select value={editForm.ipId}
+                                onChange={(e)=>setEditForm({...editForm,ipId:e.target.value})}>
+                                <option value="">IP (optional)…</option>
+                                {allIps.map((ip)=>(<option key={ip.id} value={ip.id}>{ip.name}</option>))}
+                              </select>
+                              <input type="number" min="0" placeholder="Stock (blank = digital)"
+                                value={editForm.stockCount}
+                                onChange={(e)=>setEditForm({...editForm,stockCount:e.target.value})} />
+                              <textarea rows={2} placeholder="Description" value={editForm.description}
+                                onChange={(e)=>setEditForm({...editForm,description:e.target.value})} />
+                              <div className="admin-actions">
+                                <button className="btn btn-sm" disabled={busy===`edit-${p.id}`} onClick={saveEdit}>Save</button>
+                                <button className="btn btn-sm" onClick={()=>setEditProductId(null)}>Cancel</button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       {mediaProductId === p.id && (
                         <tr>
                           <td colSpan={5}>
