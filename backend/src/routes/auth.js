@@ -9,6 +9,7 @@ import {
   clearResetToken 
 } from '../services/authService.js';
 import validator from 'validator';
+import { sendPasswordReset } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -125,15 +126,12 @@ router.post('/forgot-password', async (req, res) => {
     }
     
     const token = await createResetToken(user.id);
-    
-    // TODO: Send email with reset link
-    // For now, log it
-    console.log(`Password reset token for ${email}: ${token}`);
-    
+    const resetUrl = `https://wolffewrought.shop/reset-password?token=${token}`;
+    sendPasswordReset({ to: email, resetUrl });
+
     res.json({
       success: true,
-      message: 'Reset link sent (check console in dev)',
-      token, // Only in dev
+      message: 'If email exists, reset link sent',
     });
   } catch (error) {
     console.error(error);
