@@ -68,6 +68,25 @@ router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// Delete any order (admin only) — must be defined before /:ticketId routes
+router.delete('/admin/:ticketId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const order = await queryOne(
+      'SELECT id FROM order_tickets WHERE ticket_id = ?',
+      [ticketId]
+    );
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    await queryAll('DELETE FROM order_tickets WHERE id = ?', [order.id]);
+    res.json({ success: true, message: 'Order deleted' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 // Get single order with items
 router.get('/:ticketId', authenticateToken, async (req, res) => {
   try {
@@ -113,7 +132,26 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'No items in order' });
     }
     
-    const ticketId = `ORD-${Date.now()}-${uuidv4().substring(0, 8)}`;
+    // Ticket naming: {customerNo}-{customerOrderSeq}-{HHMM}-{DDMMYYYY}
+    // e.g. the 67th customer's first order at 21:32 on 25/07/2026
+    // becomes 67-0001-2132-25072026
+    const now = new Date();
+    const pad = (n, len = 2) => String(n).padStart(len, '0');
+    const prior = await queryOne(
+      'SELECT COUNT(*) AS c FROM order_tickets WHERE user_id = ?',
+      [userId]
+    );
+    const seq = pad((prior?.c || 0) + 1, 4);
+    const hhmm = pad(now.getHours()) + pad(now.getMinutes());
+    const ddmmyyyy = pad(now.getDate()) + pad(now.getMonth() + 1) + now.getFullYear();
+    let ticketId = `${userId}-${seq}-${hhmm}-${ddmmyyyy}`;
+
+    // Uniqueness guard (e.g. an earlier order in the sequence was deleted,
+    // then a new one lands in the same minute)
+    const clash = await queryOne('SELECT id FROM order_tickets WHERE ticket_id = ?', [ticketId]);
+    if (clash) {
+      ticketId += `-${uuidv4().substring(0, 4)}`;
+    }
     
     // Calculate total
     let totalPrice = 0;
@@ -228,12 +266,16 @@ router.post('/:ticketId/submit', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     
     const order = await queryOne(
-      'SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ? AND status = ?',
-      [ticketId, userId, 'draft']
+      `SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ?
+       AND status IN ('draft', 'submitted')`,
+      [ticketId, userId]
     );
     
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Draft order not found' });
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found, or it has already been paid — contact us to cancel a paid order',
+      });
     }
     
     // Generate PDF
@@ -318,9 +360,13 @@ router.get('/:ticketId/pdf', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     
     const order = await queryOne(
-      'SELECT pdf_url FROM order_tickets WHERE ticket_id = ? AND user_id = ?',
-      [ticketId, userId]
+      'SELECT pdf_url, user_id FROM order_tickets WHERE ticket_id = ?',
+      [ticketId]
     );
+    
+    if (order && order.user_id !== userId && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, error: 'Not your order' });
+    }
     
     if (!order || !order.pdf_url) {
       return res.status(404).json({ success: false, error: 'PDF not found' });
@@ -346,12 +392,16 @@ router.delete('/:ticketId', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     
     const order = await queryOne(
-      'SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ? AND status = ?',
-      [ticketId, userId, 'draft']
+      `SELECT id FROM order_tickets WHERE ticket_id = ? AND user_id = ?
+       AND status IN ('draft', 'submitted')`,
+      [ticketId, userId]
     );
     
     if (!order) {
-      return res.status(404).json({ success: false, error: 'Draft order not found' });
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found, or it has already been paid — contact us to cancel a paid order',
+      });
     }
     
     await queryAll('DELETE FROM order_tickets WHERE id = ?', [order.id]);
