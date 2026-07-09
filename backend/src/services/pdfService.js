@@ -7,14 +7,48 @@ import { queryAll, queryOne } from '../db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Brand assets — upload logo.png and brand-banner.jpg to backend/src/assets/
+const ASSETS = path.join(__dirname, '../assets');
+const LOGO = path.join(ASSETS, 'logo.png');
+const BANNER = path.join(ASSETS, 'brand-banner.jpg');
+
+const PAGE_W = 595.28; // A4 points
+const PAGE_H = 841.89;
+const LOGO_SIZE = 36;
+const M = 40; // margin
+
+// Paint brand chrome on a page: faded banner, corner logos, centred name
+function paintBrandChrome(doc) {
+  if (fs.existsSync(BANNER)) {
+    doc.save();
+    doc.opacity(0.06);
+    doc.image(BANNER, 0, 0, { cover: [PAGE_W, PAGE_H], align: 'center', valign: 'center' });
+    doc.restore();
+  }
+
+  if (fs.existsSync(LOGO)) {
+    const positions = [
+      [M - 10, M - 10],
+      [PAGE_W - M - LOGO_SIZE + 10, M - 10],
+      [M - 10, PAGE_H - M - LOGO_SIZE + 10],
+      [PAGE_W - M - LOGO_SIZE + 10, PAGE_H - M - LOGO_SIZE + 10],
+    ];
+    positions.forEach(([x, y]) => doc.image(LOGO, x, y, { width: LOGO_SIZE, height: LOGO_SIZE }));
+  }
+
+  doc.fontSize(20).font('Helvetica-Bold').fillColor('#1a1a1a');
+  doc.text('WOLFFEWROUGHT', 0, M + 2, { width: PAGE_W, align: 'center' });
+  doc.fontSize(8).font('Helvetica').fillColor('#888');
+  doc.text('wolffewrought.shop', 0, M + 26, { width: PAGE_W, align: 'center' });
+  doc.fillColor('#333');
+}
+
 export const generateOrderPDF = async (orderId, ticketId) => {
   try {
-    // Create tickets directory if it doesn't exist
     if (!fs.existsSync(config.ticketStoragePath)) {
       fs.mkdirSync(config.ticketStoragePath, { recursive: true });
     }
-    
-    // Get order details
+
     const order = await queryOne(
       `SELECT ot.*, u.email, u.username 
        FROM order_tickets ot 
@@ -22,12 +56,11 @@ export const generateOrderPDF = async (orderId, ticketId) => {
        WHERE ot.id = ?`,
       [orderId]
     );
-    
+
     if (!order) {
       throw new Error('Order not found');
     }
-    
-    // Get order items
+
     const items = await queryAll(
       `SELECT oi.*, p.name 
        FROM order_items oi 
@@ -35,81 +68,93 @@ export const generateOrderPDF = async (orderId, ticketId) => {
        WHERE oi.order_ticket_id = ?`,
       [orderId]
     );
-    
-    // Generate PDF
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+
+    const doc = new PDFDocument({ size: 'A4', margin: M });
     const fileName = `order_${ticketId}.pdf`;
     const filePath = path.join(config.ticketStoragePath, fileName);
-    
-    // Pipe to file
+
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
-    
-    // Header
-    doc.fontSize(24).font('Helvetica-Bold').text('Order Ticket', { align: 'center' });
-    doc.moveDown(0.5);
-    
-    // Ticket ID & Status
-    doc.fontSize(12);
-    doc.text(`Ticket ID: ${ticketId}`, { align: 'left' });
-    doc.text(`Status: ${order.status.toUpperCase()}`, { align: 'left' });
-    doc.text(`Created: ${new Date(order.created_at).toLocaleDateString()}`, { align: 'left' });
+
+    paintBrandChrome(doc);
+    doc.on('pageAdded', () => {
+      paintBrandChrome(doc);
+      doc.y = M + 60;
+    });
+
+    doc.y = M + 60;
+    doc.x = M + 10;
+
+    doc.fontSize(16).font('Helvetica-Bold').fillColor('#333');
+    doc.text('Order Ticket', { align: 'center' });
+    doc.moveDown(0.8);
+
+    // PDFs are only generated at submission, so 'draft' here means SUBMITTED
+    const statusLabel = order.status === 'draft' ? 'SUBMITTED' : order.status.toUpperCase();
+    const created = new Date(order.created_at);
+    doc.fontSize(11).font('Helvetica');
+    doc.text(`Ticket ID: ${ticketId}`);
+    doc.text(`Status: ${statusLabel}`);
+    doc.text(`Created: ${created.toLocaleDateString('en-GB')} ${created.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
     doc.moveDown(1);
-    
-    // Customer Info
+
     doc.fontSize(12).font('Helvetica-Bold').text('Customer Information', { underline: true });
     doc.font('Helvetica').fontSize(11);
     doc.text(`Name: ${order.customer_name || order.username}`);
     doc.text(`Email: ${order.customer_email || order.email}`);
     if (order.customer_notes) {
       doc.moveDown(0.5);
-      doc.text('Notes:', { underline: true });
-      doc.text(order.customer_notes);
+      doc.font('Helvetica-Bold').text('Notes:');
+      doc.font('Helvetica').text(order.customer_notes);
     }
     doc.moveDown(1);
-    
-    // Items Table
+
+    // Items table — all header cells share ONE y so columns align
     doc.fontSize(12).font('Helvetica-Bold').text('Order Items', { underline: true });
-    doc.moveDown(0.5);
-    doc.fontSize(10).font('Helvetica');
-    
-    // Table header
-    const col1 = 50, col2 = 280, col3 = 350, col4 = 450;
-    doc.text('Qty', col1, doc.y);
-    doc.text('Product', col2, doc.y);
-    doc.text('Price Each', col3, doc.y);
-    doc.text('Total', col4, doc.y);
-    
-    doc.moveTo(50, doc.y + 10).lineTo(550, doc.y + 10).stroke();
-    doc.moveDown(0.8);
-    
-    // Table rows
+    doc.moveDown(0.6);
+
+    const col = { qty: M + 10, product: M + 60, price: 350, total: 460 };
+    const headerY = doc.y;
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Qty', col.qty, headerY);
+    doc.text('Product', col.product, headerY);
+    doc.text('Price Each', col.price, headerY);
+    doc.text('Total', col.total, headerY);
+
+    doc.moveTo(M + 10, headerY + 14).lineTo(PAGE_W - M - 10, headerY + 14).stroke('#999');
+    doc.y = headerY + 22;
+
+    doc.font('Helvetica').fontSize(10);
     items.forEach((item) => {
       const y = doc.y;
-      doc.text(item.quantity.toString(), col1, y);
-      doc.text(item.name, col2, y, { width: 60 });
-      doc.text(`£${parseFloat(item.price_at_purchase).toFixed(2)}`, col3, y);
-      doc.text(`£${(item.quantity * parseFloat(item.price_at_purchase)).toFixed(2)}`, col4, y);
-      doc.moveDown(1);
+      const lineTotal = item.quantity * parseFloat(item.price_at_purchase);
+      doc.text(String(item.quantity), col.qty, y);
+      doc.text(item.name, col.product, y, { width: col.price - col.product - 15 });
+      doc.text('£' + parseFloat(item.price_at_purchase).toFixed(2), col.price, y);
+      doc.text('£' + lineTotal.toFixed(2), col.total, y);
+      doc.moveDown(0.9);
     });
-    
-    // Totals
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown(0.5);
-    doc.fontSize(12).font('Helvetica-Bold');
-    doc.text(`Total: £${parseFloat(order.total_price).toFixed(2)}`, { align: 'right' });
+
+    doc.moveTo(M + 10, doc.y + 2).lineTo(PAGE_W - M - 10, doc.y + 2).stroke('#999');
+    doc.moveDown(0.6);
+    doc.fontSize(13).font('Helvetica-Bold').fillColor('#1a1a1a');
+    doc.text('Total: £' + parseFloat(order.total_price).toFixed(2), M + 10, doc.y, {
+      width: PAGE_W - 2 * M - 20,
+      align: 'right',
+    });
     doc.moveDown(2);
-    
-    // Footer
+
     doc.fontSize(9).font('Helvetica').fillColor('#999');
-    doc.text('Please present this ticket to complete your order.', { align: 'center' });
-    
-    // Finalize PDF
+    doc.text('Please present this ticket to complete your order.', M + 10, doc.y, {
+      width: PAGE_W - 2 * M - 20,
+      align: 'center',
+    });
+
     doc.end();
-    
+
     return new Promise((resolve, reject) => {
       stream.on('finish', () => {
-        resolve(`/tickets/${fileName}`);
+        resolve('/tickets/' + fileName);
       });
       stream.on('error', reject);
     });
