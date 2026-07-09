@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import config from './config.js';
@@ -16,16 +17,27 @@ import reviewRoutes from './routes/reviews.js';
 import orderRoutes from './routes/orders.js';
 import mediaRoutes from './routes/media.js';
 import downloadRoutes from './routes/downloads.js';
+import backupRoutes from './routes/backup.js';
+import { authLimiter, orderLimiter, apiLimiter } from './middleware/rateLimiter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 // Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // API only; frontend served by Vercel
+}));
 app.use(cors({
   origin: config.corsOrigin,
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
+
+// Rate limiting
+app.use('/api/', apiLimiter);
+app.use('/api/auth', authLimiter);
+app.use('/api/orders', orderLimiter);
 
 // Static file serving for PDFs
 app.use('/tickets', express.static(config.ticketStoragePath));
@@ -40,6 +52,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/downloads', downloadRoutes);
+app.use('/api/backup', backupRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
