@@ -129,6 +129,10 @@ export const downloads = {
   forOrder: (ticketId) => client.get(`/downloads/order/${ticketId}`),
 };
 
+export const backup = {
+  database: () => client.post('/backup/database'),
+};
+
 export const media = {
   addImage: (productId, data) =>
     client.post(`/media/images/${productId}`, data),
