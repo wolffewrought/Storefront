@@ -27,11 +27,19 @@ function paintBrandChrome(doc) {
   }
 
   if (fs.existsSync(LOGO)) {
+    // Tight, symmetric corner insets. Left x and right x mirror each other
+    // (INSET from each edge); top y and bottom y likewise. Small INSET keeps
+    // the logos hard in the corners and clear of the centred title block.
+    const INSET = 18;
+    const leftX = INSET;
+    const rightX = PAGE_W - INSET - LOGO_SIZE;
+    const topY = INSET;
+    const bottomY = PAGE_H - INSET - LOGO_SIZE;
     const positions = [
-      [M - 10, M - 10],
-      [PAGE_W - M - LOGO_SIZE + 10, M - 10],
-      [M - 10, PAGE_H - M - LOGO_SIZE + 10],
-      [PAGE_W - M - LOGO_SIZE + 10, PAGE_H - M - LOGO_SIZE + 10],
+      [leftX, topY],
+      [rightX, topY],
+      [leftX, bottomY],
+      [rightX, bottomY],
     ];
     positions.forEach(([x, y]) => doc.image(LOGO, x, y, { width: LOGO_SIZE, height: LOGO_SIZE }));
   }
