@@ -14,7 +14,7 @@ const BANNER = path.join(ASSETS, 'brand-banner.jpg');
 
 const PAGE_W = 595.28; // A4 points
 const PAGE_H = 841.89;
-const LOGO_SIZE = 36;
+const LOGO_SIZE = 90;  // large corner logos that frame the page
 const M = 40; // margin
 
 // Paint brand chrome on a page: faded banner, corner logos, centred name
@@ -30,7 +30,9 @@ function paintBrandChrome(doc) {
     // Tight, symmetric corner insets. Left x and right x mirror each other
     // (INSET from each edge); top y and bottom y likewise. Small INSET keeps
     // the logos hard in the corners and clear of the centred title block.
-    const INSET = 18;
+    // Push logos hard into the corners (small equal inset from every edge)
+    // so the four marks visually box in the ticket content.
+    const INSET = 8;
     const leftX = INSET;
     const rightX = PAGE_W - INSET - LOGO_SIZE;
     const topY = INSET;
