@@ -16,7 +16,6 @@ import { OrderHistoryPage } from './pages/OrderHistoryPage';
 import { AdminPanel } from './pages/AdminPanel';
 import { BottomNav } from './components/BottomNav';
 import { PrivacyPage, TermsPage, RefundsPage, ContactPage } from './pages/PolicyPages';
-import { Analytics } from '@vercel/analytics/react';
 
 // Protected Route
 const ProtectedRoute = ({ children }) => {
@@ -80,7 +79,6 @@ const AppContent = () => {
       </main>
       <Footer />
       <BottomNav />
-      <Analytics />
     </Router>
   );
 };
