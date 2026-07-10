@@ -79,7 +79,10 @@ export const generateOrderPDF = async (orderId, ticketId) => {
       [orderId]
     );
 
-    const doc = new PDFDocument({ size: 'A4', margin: M });
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: M, left: M, right: M, bottom: LOGO_SIZE + 24 },
+    });
     const fileName = `order_${ticketId}.pdf`;
     const filePath = path.join(config.ticketStoragePath, fileName);
 
