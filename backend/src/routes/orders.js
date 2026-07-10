@@ -143,8 +143,15 @@ router.post('/', authenticateToken, async (req, res) => {
       [userId]
     );
     const seq = pad((prior?.c || 0) + 1, 4);
-    const hhmm = pad(now.getHours()) + pad(now.getMinutes());
-    const ddmmyyyy = pad(now.getDate()) + pad(now.getMonth() + 1) + now.getFullYear();
+    // Format the ticket time in UK time (auto BST/GMT), not server UTC.
+    // en-GB gives DD/MM/YYYY, HH:MM(:SS) which we strip to digits.
+    const ukParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(now).reduce((a, p) => (a[p.type] = p.value, a), {});
+    const hhmm = ukParts.hour + ukParts.minute;
+    const ddmmyyyy = ukParts.day + ukParts.month + ukParts.year;
     let ticketId = `${userId}-${seq}-${hhmm}-${ddmmyyyy}`;
 
     // Uniqueness guard (e.g. an earlier order in the sequence was deleted,
