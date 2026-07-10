@@ -95,7 +95,12 @@ export const generateOrderPDF = async (orderId, ticketId) => {
     doc.fontSize(11).font('Helvetica');
     doc.text(`Ticket ID: ${ticketId}`);
     doc.text(`Status: ${statusLabel}`);
-    doc.text(`Created: ${created.toLocaleDateString('en-GB')} ${created.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
+    const createdUK = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(created);
+    doc.text(`Created: ${createdUK}`);
     doc.moveDown(1);
 
     doc.fontSize(12).font('Helvetica-Bold').text('Customer Information', { underline: true });
