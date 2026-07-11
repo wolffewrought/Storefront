@@ -807,7 +807,10 @@ export const AdminPanel = () => {
 };
 
 const styles = `
-  .admin-panel { padding: 2rem 0; }
+  .admin-panel { padding: 2rem 1rem; }
+  @media (max-width: 768px) {
+    .admin-panel { padding: 1.5rem 1rem; }
+  }
   .admin-panel h1 { margin-bottom: 0.25rem; }
   .admin-sub { color: var(--secondary); margin-bottom: 1.5rem; }
 
