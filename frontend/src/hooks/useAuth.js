@@ -6,14 +6,23 @@ export const useAuth = () => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // authLoading is TRUE until we've read localStorage, so protected routes
+  // don't redirect before we know whether the user is logged in.
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Initialize from localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const savedToken = localStorage.getItem('token');
-    if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
-      setToken(savedToken);
+    try {
+      const savedUser = localStorage.getItem('user');
+      const savedToken = localStorage.getItem('token');
+      if (savedUser && savedToken) {
+        setUser(JSON.parse(savedUser));
+        setToken(savedToken);
+      }
+    } catch (e) {
+      // corrupt storage — ignore
+    } finally {
+      setAuthLoading(false);
     }
   }, []);
 
@@ -107,6 +116,7 @@ export const useAuth = () => {
     user,
     token,
     loading,
+    authLoading,
     error,
     isAuthenticated,
     signup,
