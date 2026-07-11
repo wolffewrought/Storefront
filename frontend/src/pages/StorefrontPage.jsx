@@ -16,6 +16,7 @@ export const StorefrontPage = () => {
   const [selectedModeller, setSelectedModeller] = useState(null);
   const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'compact' | 'list'
 
   // Fetch all data
   const { data: allProducts, loading: productsLoading, error: productsError } = useFetch(
@@ -222,11 +223,32 @@ export const StorefrontPage = () => {
           <main className="products-main">
             <div className="results-header">
               <p className="text-muted">Showing {filteredProducts.length} products</p>
+              <div className="view-toggle">
+                <button
+                  className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                  onClick={() => setViewMode('grid')}
+                  aria-label="Grid view"
+                  title="Grid"
+                >▦</button>
+                <button
+                  className={`view-btn ${viewMode === 'compact' ? 'active' : ''}`}
+                  onClick={() => setViewMode('compact')}
+                  aria-label="Compact grid"
+                  title="Compact"
+                >⊞</button>
+                <button
+                  className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setViewMode('list')}
+                  aria-label="List view"
+                  title="List"
+                >☰</button>
+              </div>
             </div>
             <ProductGrid 
               products={filteredProducts} 
               loading={productsLoading} 
               error={productsError}
+              viewMode={viewMode}
             />
           </main>
         </div>
@@ -330,6 +352,40 @@ const styles = `
   }
 
   .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .view-toggle {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .view-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #d0d0d0;
+    background: var(--white);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .view-btn.active {
+    background: var(--primary);
+    color: var(--white);
+    border-color: var(--primary);
+  }
+
+  .results-header-orig {
     margin-bottom: 1.5rem;
   }
 
