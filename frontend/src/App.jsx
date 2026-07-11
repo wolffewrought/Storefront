@@ -19,13 +19,15 @@ import { PrivacyPage, TermsPage, RefundsPage, ContactPage } from './pages/Policy
 
 // Protected Route
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuthContext();
+  const { isAuthenticated, authLoading } = useAuthContext();
+  if (authLoading) return null; // wait for localStorage before deciding
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 // Admin Route — requires login AND admin flag
 const AdminRoute = ({ children }) => {
-  const { isAuthenticated, user } = useAuthContext();
+  const { isAuthenticated, user, authLoading } = useAuthContext();
+  if (authLoading) return null; // wait for localStorage before deciding
   if (!isAuthenticated) return <Navigate to="/login" />;
   return user?.isAdmin ? children : <Navigate to="/" />;
 };
